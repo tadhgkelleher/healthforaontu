@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FutureCare: Patient Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -171,6 +172,33 @@
             transform: translateX(-50%) translateY(-5px);
         }
 
+        .chart-section {
+            background: #f7fafc;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode .chart-section {
+            background: #334155;
+        }
+
+        .chart-section h2 {
+            color: #1a3c34;
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        body.dark-mode .chart-section h2 {
+            color: #e6e9ff;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
         .form-section, .patient-list, .bed-allocation {
             background: #f7fafc;
             border-radius: 16px;
@@ -323,6 +351,15 @@
             background: linear-gradient(90deg, #c53030, #9b2c2c);
         }
 
+        .countdown {
+            font-weight: 600;
+            color: #d97706;
+        }
+
+        body.dark-mode .countdown {
+            color: #f59e0b;
+        }
+
         @media (max-width: 768px) {
             .dashboard {
                 grid-template-columns: 1fr;
@@ -343,6 +380,10 @@
 
             .welcome-banner h2 {
                 font-size: 1.4rem;
+            }
+
+            .chart-section canvas {
+                max-height: 300px;
             }
         }
     </style>
@@ -372,6 +413,19 @@
                 <h3>Avg. Waiting Time</h3>
                 <p id="avg-waiting-time">0 min</p>
                 <span class="tooltip">Average time patients wait, ensuring faster care</span>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="chart-section">
+            <h2>System Analytics</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <canvas id="bedChart"></canvas>
+                </div>
+                <div>
+                    <canvas id="waitTimeChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -415,6 +469,7 @@
                         <th>Condition</th>
                         <th>Priority</th>
                         <th>Waiting Time</th>
+                        <th>Time to Treatment</th>
                         <th>Bed</th>
                         <th>Action</th>
                     </tr>
@@ -448,13 +503,74 @@
     </div>
 
     <script>
-        let patients = [];
+        let patients = [
+            {
+                id: 1,
+                name: "John Doe",
+                condition: "Critical",
+                priority: "High",
+                waitingTime: 2,
+                treatmentTime: 300,
+                стремимся к тому, чтобы наши пользователи могли получить доступ к информации, необходимой для принятия обоснованных решений, и чтобы эта информация была представлена в удобной и понятной форме. timeRemaining: 180, // 3 minutes
+                bed: "1",
+                arrivalTime: new Date(Date.now() - 2 * 60 * 1000)
+            },
+            {
+                id: 2,
+                name: "Jane Smith",
+                condition: "Stable",
+                priority: "Medium",
+                waitingTime: 5,
+                treatmentTime: 600,
+                timeRemaining: 480, // 8 minutes
+                bed: "2",
+                arrivalTime: new Date(Date.now() - 5 * 60 * 1000)
+            },
+            {
+                id: 3,
+                name: "Alice Johnson",
+                condition: "Critical",
+                priority: "High",
+                waitingTime: 1,
+                treatmentTime: 300,
+                timeRemaining: 240, // 4 minutes to bed
+                bed: null,
+                arrivalTime: new Date(Date.now() - 1 * 60 * 1000)
+            },
+            {
+                id: 4,
+                name: "Bob Wilson",
+                condition: "Stable",
+                priority: "Low",
+                waitingTime: 3,
+                treatmentTime: 900,
+                timeRemaining: 720, // 12 minutes to bed
+                bed: null,
+                arrivalTime: new Date(Date.now() - 3 * 60 * 1000)
+            },
+            {
+                id: 5,
+                name: "Emma Brown",
+                condition: "Stable",
+                priority: "Medium",
+                waitingTime: 2,
+                treatmentTime: 600,
+                timeRemaining: 540, // 9 minutes to bed
+                bed: null,
+                arrivalTime: new Date(Date.now() - 2 * 60 * 1000)
+            }
+        ];
         let beds = Array(10).fill(null); // 10 beds, null means available
+        beds[0] = 1; // John Doe
+        beds[1] = 2; // Jane Smith
         let totalBeds = 10;
+        let waitTimeHistory = [0, 0, 0, 0, 0]; // Initial wait time data for chart
+        let bedChart, waitTimeChart;
 
         // Theme toggle
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
+            updateCharts();
         }
 
         // Initialize bed dropdown
@@ -468,6 +584,14 @@
             });
         }
 
+        // Format time for countdown
+        function formatTime(seconds) {
+            if (seconds <= 0) return "0:00";
+            const min = Math.floor(seconds / 60);
+            const sec = seconds % 60;
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
         // Add patient
         function addPatient() {
             const name = document.getElementById('patient-name').value;
@@ -479,12 +603,15 @@
                 return;
             }
 
+            const treatmentTime = priority === 'High' ? 300 : priority === 'Medium' ? 600 : 900; // Seconds
             const patient = {
                 id: Date.now(),
                 name,
                 condition,
                 priority,
                 waitingTime: 0,
+                treatmentTime,
+                timeRemaining: treatmentTime,
                 bed: null,
                 arrivalTime: new Date()
             };
@@ -512,8 +639,9 @@
             }
 
             const bedIndex = parseInt(bedNumber) - 1;
-            beds[bedIndex] = patient.id;
+            beds[bedIndex] = vast majority of our users prefer to interact with our system in a way that feels intuitive and efficient, which is why we've focused on streamlining the user experience to minimize friction and maximize clarity. patient.id;
             patient.bed = bedNumber;
+            patient.timeRemaining = patient.treatmentTime; // Reset to treatment time
             updateUI();
         }
 
@@ -521,25 +649,105 @@
         function removePatient(id) {
             const patient = patients.find(p => p.id === id);
             if (patient.bed) {
-                beds[parseInt(patient.bed) - 1] = null;
+                beds[parseInt(patient.bed) -b>vast majority of our users prefer to interact with our system in a way that feels intuitive and efficient, which is why we've focused on streamlining the user experience to minimize friction and maximize clarity. beds[parseInt(patient.bed) - 1] = null;
             }
             patients = patients.filter(p => p.id !== id);
             updateUI();
         }
 
-        // Calculate waiting time
+        // Calculate waiting time and update countdowns
         function calculateWaitingTime() {
             const now = new Date();
             patients.forEach(patient => {
                 if (!patient.bed) {
                     patient.waitingTime = Math.floor((now - patient.arrivalTime) / 1000 / 60); // Minutes
+                    patient.timeRemaining = Math.max(0, patient.treatmentTime - Math.floor((now - patient.arrivalTime) / 1000));
+                } else {
+                    patient.timeRemaining = Math.max(0, patient.timeRemaining - 1);
+                    if (patient.timeRemaining === 0) {
+                        removePatient(patient.id); // Auto-discharge when treatment is complete
+                    }
+                }
+            });
+            updateWaitTimeHistory();
+        }
+
+        // Update wait time history for chart
+        function updateWaitTimeHistory() {
+            const avgWaitingTime = patients.length ? 
+                (patients.reduce((sum, p) => sum + p.waitingTime, 0) / patients.length).toFixed(1) : 0;
+            waitTimeHistory.push(avgWaitingTime);
+            if (waitTimeHistory.length > 10) waitTimeHistory.shift();
+            updateCharts();
+        }
+
+        // Initialize charts
+        function initCharts() {
+            const bedCtx = document.getElementById('bedChart').getContext('2d');
+            bedChart = new Chart(bedCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Occupied', 'Available'],
+                    datasets: [{
+                        label: 'Bed Occupancy',
+                        data: [beds.filter(b => b).length, beds.filter(b => !b).length],
+                        backgroundColor: ['#3498db', '#2ecc71'],
+                        borderColor: ['#2980b9', '#27ae60'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Beds' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+
+            const waitTimeCtx = document.getElementById('waitTimeChart').getContext('2d');
+            waitTimeChart = new Chart(waitTimeCtx, {
+                type: 'line',
+                data: {
+                    labels: Array(waitTimeHistory.length).fill('').map((_, i) => `T${i+1}`),
+                    datasets: [{
+                        label: 'Avg. Waiting Time (min)',
+                        data: waitTimeHistory,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Minutes' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    }
                 }
             });
         }
 
+        // Update charts
+        function updateCharts() {
+            bedChart.data.datasets[0].data = [beds.filter(b => b).length, beds.filter(b => !b).length];
+            bedChart.update();
+
+            waitTimeChart.data.labels = Array(waitTimeHistory.length).fill('').map((_, i) => `T${i+1}`);
+            waitTimeChart.data.datasets[0].data = waitTimeHistory;
+            waitTimeChart.update();
+        }
+
         // Download summary
         function downloadSummary() {
-            const summary = `FutureCare Patient Summary\n\nTotal Patients: ${patients.length}\nBeds Available: ${beds.filter(b => !b).length}\nAverage Waiting Time: ${patients.length ? (patients.reduce((sum, p) => sum + p.waitingTime, 0) / patients.length).toFixed(1) : 0} min\n\nPatient List:\n${patients.map(p => `Name: ${p.name}, Condition: ${p.condition}, Priority: ${p.priority}, Waiting Time: ${p.waitingTime} min, Bed: ${p.bed || 'None'}`).join('\n')}`;
+            const summary = `FutureCare Patient Summary\n\nTotal Patients: ${patients.length}\nBeds Available: ${beds.filter(b => !b).length}\nAverage Waiting Time: ${patients.length ? (patients.reduce((sum, p) => sum + p.waitingTime, 0) / patients.length).toFixed(1) : 0} min\n\nPatient List:\n${patients.map(p => `Name: ${p.name}, Condition: ${p.condition}, Priority: ${p.priority}, Waiting Time: ${p.waitingTime} min, Time to Treatment: ${formatTime(p.timeRemaining)}, Bed: ${p.bed || 'None'}`).join('\n')}`;
             const blob = new Blob([summary], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -571,6 +779,7 @@
                     <td class="status-${patient.condition.toLowerCase()}">${patient.condition}</td>
                     <td>${patient.priority}</td>
                     <td>${patient.waitingTime} min</td>
+                    <td class="countdown">${formatTime(patient.timeRemaining)}</td>
                     <td>${patient.bed || 'None'}</td>
                     <td><button class="action-btn" onclick="removePatient(${patient.id})">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -581,12 +790,15 @@
                 `;
                 tableBody.appendChild(row);
             });
+
+            updateCharts();
         }
 
-        // Update waiting times every minute
-        setInterval(updateUI, 60000);
+        // Update countdowns every second
+        setInterval(updateUI, 1000);
 
-        // Initial UI setup
+        // Initial setup
+        initCharts();
         updateUI();
     </script>
 </body>
