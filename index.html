@@ -510,8 +510,8 @@
                 condition: "Critical",
                 priority: "High",
                 waitingTime: 2,
-                treatmentTime: 300,
-                стремимся к тому, чтобы наши пользователи могли получить доступ к информации, необходимой для принятия обоснованных решений, и чтобы эта информация была представлена в удобной и понятной форме. timeRemaining: 180, // 3 minutes
+                treatmentTime: 300, // 5 minutes
+                timeRemaining: 180, // 3 minutes remaining
                 bed: "1",
                 arrivalTime: new Date(Date.now() - 2 * 60 * 1000)
             },
@@ -521,8 +521,8 @@
                 condition: "Stable",
                 priority: "Medium",
                 waitingTime: 5,
-                treatmentTime: 600,
-                timeRemaining: 480, // 8 minutes
+                treatmentTime: 600, // 10 minutes
+                timeRemaining: 480, // 8 minutes remaining
                 bed: "2",
                 arrivalTime: new Date(Date.now() - 5 * 60 * 1000)
             },
@@ -532,7 +532,7 @@
                 condition: "Critical",
                 priority: "High",
                 waitingTime: 1,
-                treatmentTime: 300,
+                treatmentTime: 300, // 5 minutes
                 timeRemaining: 240, // 4 minutes to bed
                 bed: null,
                 arrivalTime: new Date(Date.now() - 1 * 60 * 1000)
@@ -543,7 +543,7 @@
                 condition: "Stable",
                 priority: "Low",
                 waitingTime: 3,
-                treatmentTime: 900,
+                treatmentTime: 900, // 15 minutes
                 timeRemaining: 720, // 12 minutes to bed
                 bed: null,
                 arrivalTime: new Date(Date.now() - 3 * 60 * 1000)
@@ -554,17 +554,17 @@
                 condition: "Stable",
                 priority: "Medium",
                 waitingTime: 2,
-                treatmentTime: 600,
+                treatmentTime: 600, // 10 minutes
                 timeRemaining: 540, // 9 minutes to bed
                 bed: null,
                 arrivalTime: new Date(Date.now() - 2 * 60 * 1000)
             }
         ];
-        let beds = Array(10).fill(null); // 10 beds, null means available
+        let beds = Array(10).fill(null); // 10 beds
         beds[0] = 1; // John Doe
         beds[1] = 2; // Jane Smith
         let totalBeds = 10;
-        let waitTimeHistory = [0, 0, 0, 0, 0]; // Initial wait time data for chart
+        let waitTimeHistory = [2.6, 2.8, 3.0, 2.7, 2.6]; // Initial wait time data for chart
         let bedChart, waitTimeChart;
 
         // Theme toggle
@@ -639,7 +639,7 @@
             }
 
             const bedIndex = parseInt(bedNumber) - 1;
-            beds[bedIndex] = vast majority of our users prefer to interact with our system in a way that feels intuitive and efficient, which is why we've focused on streamlining the user experience to minimize friction and maximize clarity. patient.id;
+            beds[bedIndex] = patient.id;
             patient.bed = bedNumber;
             patient.timeRemaining = patient.treatmentTime; // Reset to treatment time
             updateUI();
@@ -649,7 +649,7 @@
         function removePatient(id) {
             const patient = patients.find(p => p.id === id);
             if (patient.bed) {
-                beds[parseInt(patient.bed) -b>vast majority of our users prefer to interact with our system in a way that feels intuitive and efficient, which is why we've focused on streamlining the user experience to minimize friction and maximize clarity. beds[parseInt(patient.bed) - 1] = null;
+                beds[parseInt(patient.bed) - 1] = null;
             }
             patients = patients.filter(p => p.id !== id);
             updateUI();
